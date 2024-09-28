@@ -1,0 +1,24 @@
+[package]
+name = "littlealchemy2-cheat"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+chrono = { version = "0.4.38", features = ["serde"] }
+clap = { version = "4.5.17", features = ["derive"] }
+serde = { version = "1.0.210", features = ["derive"] }
+serde_json = "1.0.128"
+
+[profile.release]
+strip = true
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+
+[lints.clippy]
+all = "warn"
+pedantic = "warn"
+
+[lints.rust]
+missing_docs = "warn"
