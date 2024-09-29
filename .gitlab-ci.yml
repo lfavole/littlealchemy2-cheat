@@ -1,0 +1,24 @@
+stages:
+  - build-and-test
+
+rust-latest:
+  stage: build-and-test
+  image: rust:latest
+  tags:
+  - saas-windows-medium-amd64
+  - saas-macos-medium-m1
+  - saas-linux-medium-amd64
+  script:
+  - cargo build --verbose
+  - cargo test --verbose
+
+rust-nightly:
+  stage: build-and-test
+  image: rustlang/rust:nightly
+  tags:
+  - saas-windows-medium-amd64
+  - saas-macos-medium-m1
+  - saas-linux-medium-amd64
+  script:
+  - cargo build --verbose
+  - cargo test --verbose
