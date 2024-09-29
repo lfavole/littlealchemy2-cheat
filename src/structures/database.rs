@@ -214,11 +214,13 @@ impl LittleAlchemy2Database {
     pub fn obtain(&self, element_id: u16) -> Vec<Combination> {
         let path = PathToElement::new(&self.elements[element_id]);
         let mut element_to_combinations = HashMap::new();
+        let mut recursive = false;
         loop {
-            match path.advance_one_level(self, &mut element_to_combinations) {
+            match path.advance_one_level(self, &mut element_to_combinations, &[], &mut HashMap::new(), recursive) {
                 Ok(()) => {},
                 Err(x) => {return x;},
             }
+            recursive = true;
         }
     }
 }

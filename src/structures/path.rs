@@ -82,17 +82,30 @@ impl<'a> PathToElement<'a> {
         &self,
         data: &'b LittleAlchemy2Database,
         element_to_combinations: &mut HashMap<u16, PathToCombinationList<'b>>,
+        current_path: &[u16],
+        recursive_history: &mut HashMap<u16, bool>,
+        recursive: bool,
     ) -> Result<(), Vec<Combination>> {
-        let mut recursive = true;
+        if current_path.contains(&self.element.id) {
+            return Ok(());
+        }
         // If there are no combinations filled in, add them and don't recurse
         if let Entry::Vacant(entry) = element_to_combinations.entry(self.element.id) {
             entry.insert(self.get_path_to_combinations(data));
-            recursive = false;
+            assert!(!recursive);
+        } else {
+            // Don't do assertions here (if an element was already filled in before, don't recurse)
+
+            // puddle
+            // = water (doesn't exist in hashmap = not recursive) + pond (not filled = not recursive)
+            // = pond (alrady filled but not recursive!) + pond (same thing)
+            // = ...
+            recursive_history.insert(self.element.id, false);
         }
         let combinations = element_to_combinations[&self.element.id].clone();
 
         let min = combinations.1;
-        let combs = combinations.0.clone();
+        let combs = combinations.0;
         // If there are no combinations, stop here and propagate the "error"
         if combs.is_empty() {
             assert_eq!(min, 0);
@@ -113,8 +126,12 @@ impl<'a> PathToElement<'a> {
             let comb_0 = &comb.0;
             let comb_1 = &comb.1;
             for path_to_el in &mut [comb_0, comb_1] {
-                match path_to_el.advance_one_level(data, element_to_combinations) {
-                    Ok(()) => (),
+                let mut new_path = current_path.to_owned();
+                new_path.push(self.element.id);
+                let recursive = *recursive_history.entry(path_to_el.element.id)
+                    .or_insert_with(|| element_to_combinations.contains_key(&path_to_el.element.id));
+                match path_to_el.advance_one_level(data, element_to_combinations, &new_path[..], recursive_history, recursive) {
+                    Ok(()) => {},
                     Err(mut chain) => {
                         final_chain.append(&mut chain);
                         matched += 1;
@@ -125,9 +142,9 @@ impl<'a> PathToElement<'a> {
                 final_chain.push(Combination(id0, id1));
                 ret_chains.push(final_chain);
                 counter += 1;
-            }
-            if counter >= min {
-                return Err(ret_chains.concat());
+                if counter >= min {
+                    return Err(ret_chains.concat());
+                }
             }
         }
         Ok(())

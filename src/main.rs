@@ -2,7 +2,7 @@
 use std::{fs::File, io::BufReader, path::{Path, PathBuf}};
 
 use clap::{CommandFactory, error::ErrorKind, Parser, Subcommand, ValueHint::FilePath};
-use structures::{database::LittleAlchemy2Database, history::History, AlchemyElement, AlchemyElementError};
+use structures::{database::LittleAlchemy2Database, display_combinations_list, history::History, AlchemyElement, AlchemyElementError};
 
 #[derive(Debug, Subcommand)]
 /// The subcommands for the program.
@@ -35,6 +35,10 @@ pub enum Command {
     Get {
         /// Element to display
         element: String,
+
+        /// Display JavaScript commands instead of human-readable instructions
+        #[arg(long)]
+        javascript: bool,
     },
 }
 
@@ -120,36 +124,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
-    if let Command::Get { element } = &args.command {
+    if let Command::Get { element, javascript } = &args.command {
         let element = AlchemyElement::from_str(element.as_str(), &data)?;
-        let id = element.id;
         let name = element.name.clone();
-        let combinations = data.obtain(id);
-        if combinations.is_empty() {
-            assert!(data.acquired_elements.contains(&id));
+        let combinations = data.obtain(element.id);
+        if *javascript {
+            display_combinations_list(&combinations[..], &data, Some(element), true);
+        } else if combinations.is_empty() {
+            assert!(data.acquired_elements.contains(&element.id));
             println!("You already have the {name} in your inventory");
         } else {
             println!("To get the {name}, you must combine:");
-            let len = combinations.len();
-            for (i, combination) in combinations.iter().enumerate() {
-                let mut next_element_str = String::new();
-                // If it's not the last element, check in all the following combinations
-                // if there is the result (because there can be multiple results)
-                if i < len - 1 {
-                    let new_elements = data.elements.get_from_combination(combination);
-                    'outer: for el in new_elements {
-                        for combination_to_try in combinations.iter().skip(i) {
-                            if combination_to_try.has(el.id) {
-                                next_element_str = format!(" (which gives the {})", el.name);
-                                break 'outer;
-                            }
-                        }
-                    }
-                    assert!(!next_element_str.is_empty());
-                }
-
-                println!("- {}{next_element_str}", combination.display(&data));
-            }
+            display_combinations_list(&combinations[..], &data, Some(element), false);
         }
         return Ok(());
     }

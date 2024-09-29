@@ -197,6 +197,53 @@ pub fn format_elements_list(elements: &[&AlchemyElement]) -> String {
     elements.iter().map(| x | x.name.to_string()).collect::<Vec<String>>().join(", ")
 }
 
+/// Displays a list of `Combination`s.
+pub fn display_combinations_list(
+    combinations: &[Combination],
+    data: &LittleAlchemy2Database,
+    target_element: Option<&AlchemyElement>,
+    javascript: bool,
+) {
+    if javascript {
+        if combinations.is_empty() {
+            return;
+        }
+        println!(r###"localStorage.setItem("stats", '{{"firstLaunch":0,"sessionsCount":1}}');"###);
+        println!(r###"localStorage.setItem("tutorials", '{{"shownText":["final","exhausted"]}}');"###);
+        println!(r###"var game_history = JSON.parse(localStorage.getItem("history")) || [];"###);
+        for combination in combinations {
+            println!(r###"game_history.push([{}, {}, 0]);"###, combination.0, combination.1);
+        }
+        println!(r###"localStorage.setItem("history", JSON.stringify(game_history));"###);
+        return;
+    }
+    let len = combinations.len();
+    for (i, combination) in combinations.iter().enumerate() {
+        let mut next_element_str = String::new();
+        // If it's not the last element, check in all the following combinations
+        // if there is the result (because there can be multiple results)
+        if i < len - 1 && target_element.is_some() {
+            let new_elements = data.elements.get_from_combination(combination);
+            'outer: for el in new_elements {
+                for combination_to_try in combinations {
+                    if combination_to_try.has(el.id) {
+                        next_element_str = format!(" (which gives the {})", el.name);
+                        break 'outer;
+                    }
+                }
+            }
+            assert!(!next_element_str.is_empty());
+        } else {
+            next_element_str = format!(
+                " (which gives the {})",
+                format_elements_list(&data.elements.get_from_combination(combination)[..]),
+            );
+        }
+
+        println!("- {}{next_element_str}", combination.display(data));
+    }
+}
+
 pub mod condition;
 pub mod database;
 pub mod history;
