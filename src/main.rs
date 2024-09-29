@@ -140,5 +140,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
+    if let Command::Finish { javascript } = &args.command {
+        let combinations = data.finish_game(history);
+        if *javascript {
+            display_combinations_list(&combinations[..], &data, None, true);
+        } else if combinations.is_empty() {
+            println!("You already finished the game");
+        } else {
+            println!("To finish the game, you must combine:");
+            display_combinations_list(&combinations[..], &data, None, false);
+        }
+        return Ok(());
+    }
+
     todo!();
 }

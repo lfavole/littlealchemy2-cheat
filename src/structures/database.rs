@@ -1,7 +1,7 @@
-use std::{collections::{hash_map::Values, HashMap}, ops::{Index, IndexMut}};
+use std::{collections::{hash_map::{Entry, Values}, HashMap}, ops::{Index, IndexMut}};
 use serde::{de::Visitor, ser::SerializeMap, Deserialize, Serialize};
 
-use super::{condition::Condition, path::PathToElement, AlchemyElement, Combination};
+use super::{condition::Condition, history::History, path::PathToElement, AlchemyElement, Combination};
 
 
 #[derive(Debug)]
@@ -125,40 +125,42 @@ impl Serialize for LittleAlchemy2Database {
 
 impl LittleAlchemy2Database {
     pub fn check(&mut self) {
-        self.add_prime_elements();
-        self.add_unlocked_elements();
+        Self::add_prime_elements(&self.elements, &mut self.acquired_elements);
+        Self::add_unlocked_elements(&self.elements, &mut self.acquired_elements);
         self.check_can_create();
         self.check_final();
     }
 
-    fn add_prime_elements(&mut self) {
-        for item in self.elements.iter() {
+    fn add_prime_elements(elements: &ElementsList, acquired_elements: &mut Vec<u16>) {
+        for item in elements.iter() {
             if item.prime {
-                self.acquired_elements.push(item.id);
+                acquired_elements.push(item.id);
             }
         }
     }
 
-    fn add_unlocked_elements(&mut self) {
-        for item in self.elements.iter() {
+    fn add_unlocked_elements(elements: &ElementsList, acquired_elements: &mut Vec<u16>) {
+        for item in elements.iter() {
             match &item.condition {
                 Condition::None => {},
                 Condition::Progress(total) => {
-                    if self.acquired_elements.len() > *total {
-                        self.acquired_elements.push(item.id);
+                    if acquired_elements.len() > *total {
+                        acquired_elements.push(item.id);
                     }
                 },
                 Condition::Elements(elements, min) => {
                     let mut count = 0;
-                    for element in &self.acquired_elements {
+                    let mut to_add = vec![];
+                    for element in acquired_elements.iter_mut() {
                         if elements.contains(element) {
                             count += 1;
                             if count >= *min {
-                                self.acquired_elements.push(item.id);
+                                to_add.push(item.id);
                                 break;
                             }
                         }
                     }
+                    acquired_elements.append(&mut to_add);
                 },
             }
         }
@@ -222,5 +224,50 @@ impl LittleAlchemy2Database {
             }
             recursive = true;
         }
+    }
+
+    pub fn finish_game(&self, history: History) -> Vec<Combination> {
+        let mut combinations = vec![];
+        let mut acquired_elements = self.acquired_elements.clone();
+        let mut remaining_elements_to_create = HashMap::new();
+        remaining_elements_to_create.extend(
+            self.elements.0.iter()
+            .filter(| (k, v) | !acquired_elements.contains(k) && !v.can_create.is_empty())
+            .map(| (k, v) | (*k, v.can_create.clone()))
+            .collect::<Vec<_>>()
+        );
+
+        while !remaining_elements_to_create.is_empty() {
+            for element_id in acquired_elements.clone() {
+                let element = &self.elements[element_id];
+
+                for created_element_id in &element.can_create {
+                    let created_element = &self.elements[*created_element_id];
+
+                    for combination in &created_element.combinations {
+                        if combination.contains(&acquired_elements) {
+                            if !combinations.contains(combination) && !history.has_combination(combination) {
+                                combinations.push(combination.clone());
+                            }
+                            if !acquired_elements.contains(created_element_id) {
+                                acquired_elements.push(*created_element_id);
+                            }
+
+                            if let Entry::Occupied(mut entry) = remaining_elements_to_create.entry(element_id) {
+                                if let Ok(index) = entry.get().binary_search(created_element_id) {
+                                    entry.get_mut().swap_remove(index);
+                                    if entry.get().is_empty() {
+                                        entry.remove();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            Self::add_unlocked_elements(&self.elements, &mut acquired_elements);
+        }
+
+        combinations
     }
 }
