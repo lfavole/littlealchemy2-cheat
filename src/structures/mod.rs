@@ -2,6 +2,7 @@
 use crate::Command;
 
 use database::LittleAlchemy2Database;
+use history::History;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -72,9 +73,6 @@ pub struct AlchemyElement {
     #[serde(skip_serializing_if = "is_false", default)]
     /// Is the element hidden?
     pub hidden: bool,
-    #[serde(skip_serializing_if = "is_false", default)]
-    /// Is the element final (can't be combined to create other elements)?
-    pub final_: bool,
     #[serde(skip_serializing_if = "condition::Condition::is_none", default)]
     /// The condition(s) that can lead to the apparition of the element.
     pub condition: condition::Condition,
@@ -164,16 +162,24 @@ impl AlchemyElement {
         }
         if !only_combinations_ {
             if self.prime {
-                println!("Is a prime element (is present at the start)");
+                println!("Is a prime element (is present at the start of the game)");
             }
             if self.base {
                 println!("Is a base element (can't be created from other items)");
             }
-            if self.final_ {
+            if self.is_final() {
                 println!("Is a final element (can't be mixed with other items)");
             }
             if self.hidden {
                 println!("Is a hidden element (this property seems to be unused)");
+            }
+            if self.is_depleted(history) {
+                println!("Is depleted (all combinations with it have been done)");
+            } else if self.all_target_combinations_done(history) {
+                println!("All combinations that lead to this element have been done");
+            }
+            if self.all_combinations_done(data, history) {
+                println!("All combinations with this element have been done (use the --already-done option to show them)");
             }
             self.condition.display(data);
         }
@@ -189,6 +195,33 @@ impl AlchemyElement {
         if !only_combinations_ || !good_combinations.is_empty() {
             println!();
         }
+    }
+
+    /// Return true if the element is final (if it can't be combined to create other elements), false otherwise.
+    fn is_final(&self) -> bool {
+        self.can_create.is_empty()
+    }
+
+    /// Return true if all the combinations that lead to the element have been done, false otherwise.
+    fn all_target_combinations_done(&self, history: &History) -> bool {
+        self.combinations.iter().all(| x | history.has_combination(x))
+    }
+
+    /// Return true if the element is depleted (everything has been done with ir), false otherwise.
+    fn is_depleted(&self, history: &History) -> bool {
+        self.is_final() && self.all_target_combinations_done(history)
+    }
+
+    /// Return true if all the combinations that contain the element have been done, false otherwise.
+    fn all_combinations_done(&self, data: &LittleAlchemy2Database, history: &History) -> bool {
+        for item in &self.can_create {
+            for combination in &data.elements[*item].combinations {
+                if combination.has(self.id) && !history.has_combination(combination) {
+                    return false;
+                }
+            }
+        }
+        true
     }
 }
 

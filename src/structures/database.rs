@@ -185,7 +185,7 @@ impl LittleAlchemy2Database {
 
     fn check_final(&self) {
         for item in self.elements.iter() {
-            if item.final_ {
+            if item.is_final() {
                 assert!(item.can_create.is_empty());
             }
         }
@@ -226,7 +226,7 @@ impl LittleAlchemy2Database {
         }
     }
 
-    pub fn finish_game(&self, history: History) -> Vec<Combination> {
+    pub fn finish_game(&self, history: &History) -> Vec<Combination> {
         let mut combinations = vec![];
         let mut acquired_elements = self.acquired_elements.clone();
         let mut remaining_elements_to_create = HashMap::new();
