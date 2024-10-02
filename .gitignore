@@ -1,3 +1,6 @@
+/docs/book
+/docs/src/dist
+/docs/src/latest-build.md
 /target
 Cargo.lock
 *.json

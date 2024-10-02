@@ -11,11 +11,12 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         toolchain: [stable, beta, nightly]
+        os: [windows-latest, macos-latest, ubuntu-latest]
 
     steps:
     - name: Checkout

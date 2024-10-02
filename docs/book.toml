@@ -1,0 +1,6 @@
+[book]
+authors = ["Laurent FAVOLE"]
+language = "en"
+multilingual = false
+src = "src"
+title = "littlealchemy2-cheat"

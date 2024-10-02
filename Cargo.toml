@@ -9,6 +9,10 @@ clap = { version = "4.5.17", features = ["derive"] }
 serde = { version = "1.0.210", features = ["derive"] }
 serde_json = "1.0.128"
 
+[[example]]
+name = "build-book"
+path = "src/build_book.rs"
+
 [profile.release]
 strip = true
 opt-level = "z"
