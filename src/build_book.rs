@@ -76,6 +76,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     eprintln!("Building...");
     let mut command = vec!["cargo", "build", "--release", "--message-format", "json"];
+    if std::env::args().any(| x | x == "--verbose") {
+        command.push("--verbose");
+    }
     for (_, target) in targets {
         command.push("--target");
         command.push(target);

@@ -30,7 +30,7 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Build the book
-        run: cargo run --example build-book
+        run: cargo run --example build-book -- --verbose
 
       - name: Upload GitHub Pages artifact
         uses: actions/upload-pages-artifact@v3
