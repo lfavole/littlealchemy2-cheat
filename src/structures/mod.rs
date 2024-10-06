@@ -1,7 +1,7 @@
 //! Data structures used for the program.
 use crate::Command;
 
-use database::LittleAlchemy2Database;
+use game_status::GameStatus;
 use history::History;
 use serde::{Deserialize, Serialize};
 
@@ -18,7 +18,7 @@ pub struct Combination(
 
 impl Combination {
     /// Returns a formatted version of the combination according to the given `LittleAlchemy2Database`.
-    pub fn display(&self, data: &LittleAlchemy2Database) -> String {
+    pub fn display(&self, data: &GameStatus) -> String {
         format!("{} + {}", &data.elements[self.0].name, data.elements[self.1].name)
     }
 
@@ -108,7 +108,7 @@ impl std::fmt::Display for AlchemyElementError {
 }
 impl std::error::Error for AlchemyElementError {}
 impl AlchemyElement {
-    pub fn from_str<'a>(s: &str, data: &'a LittleAlchemy2Database) -> Result<&'a Self, AlchemyElementError> {
+    pub fn from_str<'a>(s: &str, data: &'a GameStatus) -> Result<&'a Self, AlchemyElementError> {
         if s.is_empty() {
             return Err(AlchemyElementError::EmptyString);
         }
@@ -132,7 +132,7 @@ impl AlchemyElement {
 
     pub fn display(
         &self,
-        data: &database::LittleAlchemy2Database,
+        data: &game_status::GameStatus,
         history: &history::History,
         subcommand: &Command,
     ) {
@@ -213,7 +213,7 @@ impl AlchemyElement {
     }
 
     /// Return true if all the combinations that contain the element have been done, false otherwise.
-    fn all_combinations_done(&self, data: &LittleAlchemy2Database, history: &History) -> bool {
+    fn all_combinations_done(&self, data: &GameStatus, history: &History) -> bool {
         for item in &self.can_create {
             for combination in &data.elements[*item].combinations {
                 if combination.has(self.id) && !history.has_combination(combination) {
@@ -233,7 +233,7 @@ pub fn format_elements_list(elements: &[&AlchemyElement]) -> String {
 /// Displays a list of `Combination`s.
 pub fn display_combinations_list(
     combinations: &[Combination],
-    data: &LittleAlchemy2Database,
+    data: &GameStatus,
     target_element: Option<&AlchemyElement>,
     javascript: bool,
 ) {
@@ -278,7 +278,7 @@ pub fn display_combinations_list(
 }
 
 pub mod condition;
-pub mod database;
+pub mod game_status;
 pub mod history;
 pub mod path;
 pub mod serializers;

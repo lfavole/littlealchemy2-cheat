@@ -42,6 +42,48 @@ impl ElementsList {
     }
 }
 
+pub(crate) struct ElementsListVisitor;
+
+impl<'de> Visitor<'de> for ElementsListVisitor {
+    type Value = ElementsList;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        formatter.write_str("an ElementsList object (list of AlchemyElement objects)")
+    }
+
+    fn visit_map<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+    where A: serde::de::MapAccess<'de> {
+        let mut db = ElementsList::new();
+        while let Some(key) = seq.next_key()? {
+            if let Some(mut value) = seq.next_value::<Option<AlchemyElement>>()? {
+                value.id = key;
+                db.0.insert(key, value);
+            } else {
+                break;
+            }
+        }
+        Ok(db)
+    }
+}
+
+impl<'de> Deserialize<'de> for ElementsList {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where D: serde::Deserializer<'de> {
+        deserializer.deserialize_map(ElementsListVisitor)
+    }
+}
+
+impl Serialize for ElementsList {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where S: serde::Serializer {
+        let mut map = serializer.serialize_map(Some(self.0.len()))?;
+        for value in self.0.values() {
+            map.serialize_entry(&value.id, value)?;
+        }
+        map.end()
+    }
+}
+
 impl Default for ElementsList {
     fn default() -> Self {
         Self::new()
@@ -62,68 +104,24 @@ impl IndexMut<u16> for ElementsList {
     }
 }
 
-#[derive(Debug)]
-pub struct LittleAlchemy2Database {
+#[derive(Debug, Default)]
+pub struct GameStatus {
     pub elements: ElementsList,
     pub acquired_elements: Vec<u16>,
+    pub history: History,
 }
 
-impl LittleAlchemy2Database {
-    pub fn new(elements: ElementsList) -> LittleAlchemy2Database {
+impl GameStatus {
+    pub fn new(elements: ElementsList, history: History) -> GameStatus {
         let mut ret = Self {
             elements,
             acquired_elements: vec![],
+            history,
         };
         ret.check();
         ret
     }
-}
 
-pub(crate) struct DBVisitor;
-
-impl<'de> Visitor<'de> for DBVisitor {
-    type Value = LittleAlchemy2Database;
-
-    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-        formatter.write_str("a LittleAlchemy2Database object (list of AlchemyElement objects)")
-    }
-
-    fn visit_map<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
-    where A: serde::de::MapAccess<'de> {
-        let mut db = LittleAlchemy2Database::new(ElementsList::new());
-        while let Some(key) = seq.next_key()? {
-            if let Some(mut value) = seq.next_value::<Option<AlchemyElement>>()? {
-                value.id = key;
-                db.elements.0.insert(key, value);
-            } else {
-                break;
-            }
-        }
-        // Manually perform the checks
-        db.check();
-        Ok(db)
-    }
-}
-
-impl<'de> Deserialize<'de> for LittleAlchemy2Database {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where D: serde::Deserializer<'de> {
-        deserializer.deserialize_map(DBVisitor)
-    }
-}
-
-impl Serialize for LittleAlchemy2Database {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where S: serde::Serializer {
-        let mut map = serializer.serialize_map(Some(self.elements.len()))?;
-        for value in self.elements.iter() {
-            map.serialize_entry(&value.id, value)?;
-        }
-        map.end()
-    }
-}
-
-impl LittleAlchemy2Database {
     pub fn check(&mut self) {
         Self::add_prime_elements(&self.elements, &mut self.acquired_elements);
         Self::add_unlocked_elements(&self.elements, &mut self.acquired_elements);
@@ -226,7 +224,7 @@ impl LittleAlchemy2Database {
         }
     }
 
-    pub fn finish_game(&self, history: &History) -> Vec<Combination> {
+    pub fn finish_game(&self) -> Vec<Combination> {
         let mut combinations = vec![];
         let mut acquired_elements = self.acquired_elements.clone();
         let mut remaining_elements_to_create = HashMap::new();
@@ -246,7 +244,7 @@ impl LittleAlchemy2Database {
 
                     for combination in &created_element.combinations {
                         if combination.contains(&acquired_elements) {
-                            if !combinations.contains(combination) && !history.has_combination(combination) {
+                            if !combinations.contains(combination) && !self.history.has_combination(combination) {
                                 combinations.push(combination.clone());
                             }
                             if !acquired_elements.contains(created_element_id) {

@@ -2,7 +2,8 @@
 use std::{fs::File, io::BufReader, path::{Path, PathBuf}};
 
 use clap::{CommandFactory, error::ErrorKind, Parser, Subcommand, ValueHint::FilePath};
-use structures::{database::LittleAlchemy2Database, display_combinations_list, history::History, AlchemyElement, AlchemyElementError};
+use serde::de::DeserializeOwned;
+use structures::{game_status::GameStatus, display_combinations_list, history::History, AlchemyElement, AlchemyElementError};
 
 #[derive(Debug, Subcommand)]
 /// The subcommands for the program.
@@ -84,39 +85,41 @@ impl Cli {
     }
 }
 
+fn read_json<T: DeserializeOwned>(file: &Path) -> Result<T, Box<dyn std::error::Error>> {
+    let file = File::open(file)?;
+    let reader = BufReader::new(file);
+    let x = serde_json::from_reader(reader);
+    x.map_err(std::convert::Into::into)
+}
+
 mod structures;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Cli::parse();
 
-    let file = File::open(&args.file)?;
-    let reader = BufReader::new(file);
-
-    let mut data: LittleAlchemy2Database = serde_json::from_reader(reader)?;
-
-    let history: History = if args.no_history {
-        History::new()
-    } else {
-        let file2 = File::open(&args.history_file)?;
-        let reader2 = BufReader::new(file2);
-
-        serde_json::from_reader(reader2)?
+    let mut data = GameStatus {
+        elements: read_json(&args.file)?,
+        history: if args.no_history {
+            History::new()
+        } else {
+            read_json(&args.history_file)?
+        },
+        ..Default::default()
     };
 
-    if !history.0.is_empty() {
-        history.iter().for_each(| item | data.combine(&item.combination));
+    if !data.history.0.is_empty() {
         data.check();
     }
 
     if let Command::Display { element, .. } = &args.command {
-        let element_or_err = structures::AlchemyElement::from_str(element.as_str(), &data);
+        let element_or_err = AlchemyElement::from_str(element.as_str(), &data);
         match element_or_err {
             Ok(element) => {
-                element.display(&data, &history, &args.command);
+                element.display(&data, &data.history, &args.command);
             },
             Err(AlchemyElementError::EmptyString) => {
                 for item in data.elements.iter() {
-                    item.display(&data, &history, &args.command);
+                    item.display(&data, &data.history, &args.command);
                 }
             },
             Err(err) => { Err(err)?; },
@@ -141,7 +144,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     if let Command::Finish { javascript } = &args.command {
-        let combinations = data.finish_game(&history);
+        let combinations = data.finish_game();
         if *javascript {
             display_combinations_list(&combinations[..], &data, None, true);
         } else if combinations.is_empty() {

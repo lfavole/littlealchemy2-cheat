@@ -1,6 +1,6 @@
 use std::collections::{hash_map::Entry, HashMap};
 
-use super::{condition::Condition, database::LittleAlchemy2Database, AlchemyElement, Combination};
+use super::{condition::Condition, game_status::GameStatus, AlchemyElement, Combination};
 
 #[derive(Clone, Debug)]
 /// A wrapper for lists of `PathToCombination` objects.
@@ -19,7 +19,7 @@ pub struct PathToCombination<'a>(
 );
 
 impl<'a> PathToCombination<'a> {
-    pub fn from(value: &Combination, data: &'a LittleAlchemy2Database) -> Self {
+    pub fn from(value: &Combination, data: &'a GameStatus) -> Self {
         Self(
             PathToElement::new(&data.elements[value.0]),
             PathToElement::new(&data.elements[value.1]),
@@ -38,7 +38,7 @@ impl<'a> PathToElement<'a> {
         Self { element }
     }
 
-    fn get_path_to_combinations<'b>(&self, data: &'b LittleAlchemy2Database) -> PathToCombinationList<'b> {
+    fn get_path_to_combinations<'b>(&self, data: &'b GameStatus) -> PathToCombinationList<'b> {
         if data.acquired_elements.contains(&self.element.id) || self.element.prime {
             PathToCombinationList(vec![], 0)
         } else {
@@ -80,7 +80,7 @@ impl<'a> PathToElement<'a> {
 
     pub fn advance_one_level<'b>(
         &self,
-        data: &'b LittleAlchemy2Database,
+        data: &'b GameStatus,
         element_to_combinations: &mut HashMap<u16, PathToCombinationList<'b>>,
         current_path: &[u16],
         recursive_history: &mut HashMap<u16, bool>,

@@ -2,7 +2,7 @@ use serde::{de::Visitor, ser::SerializeMap, Deserialize, Serialize};
 
 use crate::structures::{format_elements_list, AlchemyElement};
 
-use super::database::LittleAlchemy2Database;
+use super::game_status::GameStatus;
 
 #[derive(Clone, Debug, PartialEq)]
 /// A condition that needs to be fulfilled in order to unlock an element.
@@ -22,7 +22,7 @@ impl Condition {
     }
 
     /// Returns a formatted version of the condition according to the given `LittleAlchemy2Database`.
-    pub fn display(&self, data: &LittleAlchemy2Database) {
+    pub fn display(&self, data: &GameStatus) {
         match self {
             Self::None => {},
             Self::Progress(total) => {
