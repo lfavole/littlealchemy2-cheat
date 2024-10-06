@@ -6,16 +6,18 @@ run-tests:
   stage: build-and-test
   parallel:
     matrix:
-      - IMAGE:
-          - rust:latest
-          - rustlang/rust:nightly
+      - RUST_VERSION:
+          - stable
+          - beta
+          - nightly
         TAGS:
           - saas-windows-medium-amd64
-          - saas-macos-medium-m1
           - saas-linux-medium-amd64
-  image: $IMAGE
+  image: rust:latest
   tags: [$TAGS]
   script:
+    - rustup update $RUST_VERSION
+    - rustup default $RUST_VERSION
     - cargo build --verbose
     - cargo test --verbose
 
