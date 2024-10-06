@@ -10,6 +10,10 @@ serde = { version = "1.0.210", features = ["derive"] }
 serde_json = "1.0.128"
 
 [[example]]
+name = "build-binary"
+path = "src/build_binary.rs"
+
+[[example]]
 name = "build-book"
 path = "src/build_book.rs"
 

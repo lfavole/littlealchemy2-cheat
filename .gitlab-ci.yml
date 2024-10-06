@@ -29,7 +29,7 @@ docs:
   script:
     - cargo build --verbose
     - cargo test --verbose
-    - cargo run --example build-book -- --verbose
+    - cargo run --example build-book
   artifacts:
     paths:
       - public
