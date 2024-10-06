@@ -63,7 +63,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let targets = [
         ("windows", "x86_64-pc-windows-gnu"),
-        ("mac", "x86_64-apple-darwin"),
+        ("mac", "aarch64-apple-darwin"),
         ("linux", "x86_64-unknown-linux-gnu"),
     ];
 
