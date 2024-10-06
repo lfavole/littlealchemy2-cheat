@@ -1,5 +1,5 @@
 //! A command-line utility that builds the binaries and the book.
-use std::{ffi::OsStr, fs::{copy, create_dir, metadata, remove_dir_all, write}, os::unix::fs::MetadataExt, path::{Path, PathBuf}, process::{exit, Command, Stdio}};
+use std::{ffi::OsStr, fs::{copy, create_dir, metadata, remove_dir_all, write}, path::{Path, PathBuf}, process::{exit, Command, Stdio}};
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -121,7 +121,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             );
             dest.set_file_name(&file_name);
             copy(&executable, &dest)?;
-            table.push((file_name, metadata(dest).unwrap().size()));
+            table.push((file_name, metadata(dest).unwrap().len()));
         }
     }
 
