@@ -2,24 +2,19 @@ stages:
   - build-and-test
   - deploy
 
-rust-latest:
+run-tests:
   stage: build-and-test
-  image: rust:latest
-  tags:
-    - saas-windows-medium-amd64
-    - saas-macos-medium-m1
-    - saas-linux-medium-amd64
-  script:
-    - cargo build --verbose
-    - cargo test --verbose
-
-rust-nightly:
-  stage: build-and-test
-  image: rustlang/rust:nightly
-  tags:
-    - saas-windows-medium-amd64
-    - saas-macos-medium-m1
-    - saas-linux-medium-amd64
+  parallel:
+    matrix:
+      - IMAGE:
+          - rust:latest
+          - rustlang/rust:nightly
+        TAGS:
+          - saas-windows-medium-amd64
+          - saas-macos-medium-m1
+          - saas-linux-medium-amd64
+  image: $IMAGE
+  tags: [$TAGS]
   script:
     - cargo build --verbose
     - cargo test --verbose
