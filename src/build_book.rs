@@ -92,7 +92,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 dest.extension().map(| x | ".".to_owned() + x.to_str().unwrap_or("")).unwrap_or_default(),
             );
             dest.set_file_name(&file_name);
-            println!("{executable:?} -> {dest:?}");
             copy(&executable, &dest)?;
             table.push((file_name, metadata(dest).unwrap().size()));
         }

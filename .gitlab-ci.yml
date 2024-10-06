@@ -1,5 +1,6 @@
 stages:
   - build-and-test
+  - deploy
 
 rust-latest:
   stage: build-and-test
@@ -11,6 +12,8 @@ rust-latest:
   script:
   - cargo build --verbose
   - cargo test --verbose
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
 
 rust-nightly:
   stage: build-and-test
@@ -22,3 +25,19 @@ rust-nightly:
   script:
   - cargo build --verbose
   - cargo test --verbose
+
+docs:
+  stage: deploy
+  image: rust:latest
+  tags:
+  - saas-linux-medium-amd64
+  script:
+  - cargo build --verbose
+  - cargo test --verbose
+  - cargo run --example build-book
+  artifacts:
+    paths:
+      - public
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+  allow_failure: true
