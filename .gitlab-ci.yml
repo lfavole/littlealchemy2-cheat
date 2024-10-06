@@ -6,35 +6,33 @@ rust-latest:
   stage: build-and-test
   image: rust:latest
   tags:
-  - saas-windows-medium-amd64
-  - saas-macos-medium-m1
-  - saas-linux-medium-amd64
+    - saas-windows-medium-amd64
+    - saas-macos-medium-m1
+    - saas-linux-medium-amd64
   script:
-  - cargo build --verbose
-  - cargo test --verbose
-  rules:
-    - if: $CI_COMMIT_BRANCH == "main"
+    - cargo build --verbose
+    - cargo test --verbose
 
 rust-nightly:
   stage: build-and-test
   image: rustlang/rust:nightly
   tags:
-  - saas-windows-medium-amd64
-  - saas-macos-medium-m1
-  - saas-linux-medium-amd64
+    - saas-windows-medium-amd64
+    - saas-macos-medium-m1
+    - saas-linux-medium-amd64
   script:
-  - cargo build --verbose
-  - cargo test --verbose
+    - cargo build --verbose
+    - cargo test --verbose
 
 docs:
   stage: deploy
   image: rust:latest
   tags:
-  - saas-linux-medium-amd64
+    - saas-linux-medium-amd64
   script:
-  - cargo build --verbose
-  - cargo test --verbose
-  - cargo run --example build-book
+    - cargo build --verbose
+    - cargo test --verbose
+    - cargo run --example build-book
   artifacts:
     paths:
       - public
