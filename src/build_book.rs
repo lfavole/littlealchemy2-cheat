@@ -1,5 +1,5 @@
 //! A command-line utility that builds the binaries and the book.
-use std::{fs::{read_dir, write}, path::PathBuf};
+use std::{fs::{read_dir, remove_dir, remove_file, rename, write}, path::PathBuf};
 
 #[allow(clippy::cast_precision_loss)]
 /// Format a file size to make it human-readable.
@@ -21,6 +21,9 @@ mod run_command;
 use run_command::run_command;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    eprintln!("Building technical docs...");
+    run_command(&["cargo", "doc", "--no-deps"])?;
+
     eprintln!("Installing mdbook...");
     run_command(&["cargo", "install", "mdbook"])?;
 
@@ -47,6 +50,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     eprintln!("Building book...");
     run_command(&["mdbook", "build", "docs"])?;
+
+    eprintln!("Deleting dummy files...");
+    remove_file("docs/book/doc/littlealchemy2_cheat/index.html")?;
+    remove_dir("docs/book/doc/littlealchemy2_cheat")?;
+    remove_dir("docs/book/doc")?;
+    eprintln!("Moving technical docs...");
+    rename("target/doc", "docs/book/doc")?;
 
     Ok(())
 }
