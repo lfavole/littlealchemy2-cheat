@@ -54,6 +54,7 @@ docs:
         - ~/.cargo/registry/index/
         - ~/.cargo/registry/cache/
         - ~/.cargo/git/db/
+        - docs/book/
         - target/
   image: rust:latest
   tags:
