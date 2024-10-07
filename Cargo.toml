@@ -30,3 +30,9 @@ pedantic = "warn"
 
 [lints.rust]
 missing_docs = "warn"
+
+[lints.rustdoc]
+broken_intra_doc_links = "warn"
+missing_crate_level_docs = "warn"
+private_doc_tests = "warn"
+unescaped_backticks = "warn"
