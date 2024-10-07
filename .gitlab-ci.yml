@@ -4,6 +4,17 @@ stages:
 
 run-tests:
   stage: build-and-test
+  cache:
+    - key:
+        files:
+          - Cargo.toml
+          - Cargo.lock
+      paths:
+        - ~/.cargo/bin/
+        - ~/.cargo/registry/index/
+        - ~/.cargo/registry/cache/
+        - ~/.cargo/git/db/
+        - target/
   parallel:
     matrix:
       - RUST_VERSION:
@@ -23,6 +34,17 @@ run-tests:
 
 docs:
   stage: deploy
+  cache:
+    - key:
+        files:
+          - Cargo.toml
+          - Cargo.lock
+      paths:
+        - ~/.cargo/bin/
+        - ~/.cargo/registry/index/
+        - ~/.cargo/registry/cache/
+        - ~/.cargo/git/db/
+        - target/
   image: rust:latest
   tags:
     - saas-linux-medium-amd64
