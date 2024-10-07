@@ -30,7 +30,8 @@ stages:
 
 run-tests-windows:
   extends: .base
-  tags: [saas-windows-medium-amd64]
+  tags:
+    - saas-windows-medium-amd64
   before_script:
     - curl.exe --proto '=https' --tlsv1.2 -sSf -o rustup-init.exe https://static.rust-lang.org/rustup/dist/x86_64-pc-windows-msvc/rustup-init.exe
     - ./rustup-init.exe -y
@@ -38,7 +39,8 @@ run-tests-windows:
 
 run-tests-linux:
   extends: .base
-  tags: [saas-linux-medium-amd64]
+  tags:
+    - saas-linux-small-amd64
 
 docs:
   stage: deploy
@@ -55,7 +57,7 @@ docs:
         - target/
   image: rust:latest
   tags:
-    - saas-linux-medium-amd64
+    - saas-linux-small-amd64
   script:
     - cargo build --verbose
     - cargo test --verbose
