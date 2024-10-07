@@ -34,7 +34,8 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: cargo-${{ matrix.toolchain }}-${{ runner.os }}-${{ github.sha }}
+          restore-keys: cargo-${{ matrix.toolchain }}-${{ runner.os }}-
 
       - name: Build
         run: cargo build --verbose

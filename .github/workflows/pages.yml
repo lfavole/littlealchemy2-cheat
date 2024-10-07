@@ -31,7 +31,8 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: book-bins-${{ runner.os }}-${{ github.sha }}
+          restore-keys: book-bins-${{ runner.os }}-
 
       - name: Build the binary
         run: cargo run --example build-binary -- --verbose --current
@@ -60,8 +61,8 @@ jobs:
       - name: Install Rust
         run: rustup update stable && rustup default stable
 
-      - name: Cache Cargo files
-        uses: actions/cache@v4
+      - name: Restore Cargo files
+        uses: actions/cache/restore@v4
         with:
           path: |
             ~/.cargo/bin/
@@ -69,7 +70,16 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: book-bins-${{ runner.os }}-${{ github.sha }}
+          restore-keys: book-bins-${{ runner.os }}-
+
+      - name: Cache built book
+        uses: actions/cache@v4
+        with:
+          path: |
+            docs/book/
+          key: book-html-${{ github.sha }}
+          restore-keys: book-html-
 
       - name: Build the book
         run: cargo run --example build-book
