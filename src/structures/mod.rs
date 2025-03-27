@@ -1,5 +1,5 @@
 //! Data structures used for the program.
-use crate::Command;
+use std::fmt::Display;
 
 use game_status::GameStatus;
 use history::History;
@@ -17,14 +17,9 @@ pub struct Combination(
 );
 
 impl Combination {
-    /// Returns a formatted version of the combination according to the given `LittleAlchemy2Database`.
-    pub fn display(&self, data: &GameStatus) -> String {
-        format!("{} + {}", &data.elements[self.0].name, data.elements[self.1].name)
-    }
-
     /// Returns `true` if the combination contains any of the specified element IDs, `false` otherwise.
-    pub fn contains(&self, ids: &[u16]) -> bool {
-        ids.contains(&self.0) || ids.contains(&self.1)
+    pub fn contains(&self, mut ids: impl Iterator<Item = u16>) -> bool {
+        ids.any(| x | self.has(x))
     }
 
     /// Returns `true` if the combination contains the specified element ID, `false` otherwise.
@@ -130,73 +125,6 @@ impl AlchemyElement {
         }
     }
 
-    pub fn display(
-        &self,
-        data: &game_status::GameStatus,
-        history: &history::History,
-        subcommand: &Command,
-    ) {
-        let only_combinations_;
-        let already_done_;
-        let unavailable_;
-        match subcommand {
-            Command::Display { only_combinations, already_done, unavailable, .. } => {
-                only_combinations_ = *only_combinations;
-                already_done_ = *already_done;
-                unavailable_ = *unavailable;
-            },
-            _ => {
-                panic!("called display() with a non-Display subcommand: {subcommand:?}");
-            }
-        }
-        let mut good_combinations: Vec<&Combination> = self.combinations.iter().collect();
-        if !unavailable_ {
-            good_combinations = good_combinations.iter().filter(| x | data.can_do_combination(x)).copied().collect();
-        }
-        if !already_done_ {
-            good_combinations = good_combinations.iter().filter(| x | !history.has_combination(x)).copied().collect();
-        }
-        // let good_combinations: Vec<&Combination> = good_combinations.collect();
-        if !only_combinations_ || !good_combinations.is_empty() {
-            println!("Element #{}: {}", self.id, self.name);
-        }
-        if !only_combinations_ {
-            if self.prime {
-                println!("Is a prime element (is present at the start of the game)");
-            }
-            if self.base {
-                println!("Is a base element (can't be created from other items)");
-            }
-            if self.is_final() {
-                println!("Is a final element (can't be mixed with other items)");
-            }
-            if self.hidden {
-                println!("Is a hidden element (this property seems to be unused)");
-            }
-            if self.is_depleted(history) {
-                println!("Is depleted (all combinations with it have been done)");
-            } else if self.all_target_combinations_done(history) {
-                println!("All combinations that lead to this element have been done");
-            }
-            if self.all_combinations_done(data, history) {
-                println!("All combinations with this element have been done (use the --already-done option to show them)");
-            }
-            self.condition.display(data);
-        }
-        for comb in &good_combinations {
-            println!("= {}", comb.display(data));
-        }
-        if !only_combinations_ && !self.can_create.is_empty() {
-            println!("Can create:");
-            for creation in &self.can_create {
-                println!("- {}", data.elements[*creation].name);
-            }
-        }
-        if !only_combinations_ || !good_combinations.is_empty() {
-            println!();
-        }
-    }
-
     /// Return true if the element is final (if it can't be combined to create other elements), false otherwise.
     fn is_final(&self) -> bool {
         self.can_create.is_empty()
@@ -225,58 +153,38 @@ impl AlchemyElement {
     }
 }
 
+impl std::fmt::Display for AlchemyElement {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.name)
+    }
+}
+
+impl From<AlchemyElement> for String {
+    fn from(val: AlchemyElement) -> Self {
+        val.name.clone()
+    }
+}
+
+/// Joins the given `elements` with a `separator`.
+fn join<T: Display>(mut elements: impl Iterator<Item = T>, separator: impl Display) -> String {
+    let mut ret;
+    if let Some(first) = elements.next() {
+        ret = format!("{first}");
+    } else {
+        return String::new();
+    }
+    for item in elements {
+        ret.push_str(format!("{separator}{item}").as_str());
+    }
+    ret
+}
+
 /// Formats a list of `AlchemyElement`s into a string.
-pub fn format_elements_list(elements: &[&AlchemyElement]) -> String {
-    elements.iter().map(| x | x.name.to_string()).collect::<Vec<String>>().join(", ")
+pub fn format_elements_list<'a>(elements: impl Iterator<Item = &'a AlchemyElement>) -> String {
+    join(elements, ", ")
 }
 
-/// Displays a list of `Combination`s.
-pub fn display_combinations_list(
-    combinations: &[Combination],
-    data: &GameStatus,
-    target_element: Option<&AlchemyElement>,
-    javascript: bool,
-) {
-    if javascript {
-        if combinations.is_empty() {
-            return;
-        }
-        println!(r###"localStorage.setItem("stats", '{{"firstLaunch":0,"sessionsCount":1}}');"###);
-        println!(r###"localStorage.setItem("tutorials", '{{"shownText":["final","exhausted"]}}');"###);
-        println!(r###"var game_history = JSON.parse(localStorage.getItem("history")) || [];"###);
-        for combination in combinations {
-            println!(r###"game_history.push([{}, {}, 0]);"###, combination.0, combination.1);
-        }
-        println!(r###"localStorage.setItem("history", JSON.stringify(game_history));"###);
-        return;
-    }
-    let len = combinations.len();
-    for (i, combination) in combinations.iter().enumerate() {
-        let mut next_element_str = String::new();
-        // If it's not the last element, check in all the following combinations
-        // if there is the result (because there can be multiple results)
-        if i < len - 1 && target_element.is_some() {
-            let new_elements = data.elements.get_from_combination(combination);
-            'outer: for el in new_elements {
-                for combination_to_try in combinations {
-                    if combination_to_try.has(el.id) {
-                        next_element_str = format!(" (which gives the {})", el.name);
-                        break 'outer;
-                    }
-                }
-            }
-            assert!(!next_element_str.is_empty());
-        } else {
-            next_element_str = format!(
-                " (which gives the {})",
-                format_elements_list(&data.elements.get_from_combination(combination)[..]),
-            );
-        }
-
-        println!("- {}{next_element_str}", combination.display(data));
-    }
-}
-
+pub mod display;
 pub mod condition;
 pub mod game_status;
 pub mod history;

@@ -67,7 +67,7 @@ impl Serialize for HistoryItem {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(from = "Vec<HistoryItem>", into = "Vec<HistoryItem>")]
 pub struct History(pub Vec<HistoryItem>);
 
@@ -84,21 +84,11 @@ impl From<History> for Vec<HistoryItem> {
 }
 
 impl History {
-    pub fn new() -> Self {
-        Self(Vec::new())
-    }
-
     pub fn iter(&self) -> Iter<'_, HistoryItem> {
         self.0.iter()
     }
 
     pub fn has_combination(&self, combination: &Combination) -> bool {
         self.iter().any(| x | x.combination == *combination)
-    }
-}
-
-impl Default for History {
-    fn default() -> Self {
-        Self::new()
     }
 }

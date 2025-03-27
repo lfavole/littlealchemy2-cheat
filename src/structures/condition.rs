@@ -1,9 +1,5 @@
 use serde::{de::Visitor, ser::SerializeMap, Deserialize, Serialize};
 
-use crate::structures::{format_elements_list, AlchemyElement};
-
-use super::game_status::GameStatus;
-
 #[derive(Clone, Debug, PartialEq)]
 /// A condition that needs to be fulfilled in order to unlock an element.
 pub enum Condition {
@@ -19,23 +15,6 @@ impl Condition {
     /// Returns `true` if there is no condition, `false` otherwise.
     pub fn is_none(&self) -> bool {
         *self == Self::None
-    }
-
-    /// Returns a formatted version of the condition according to the given `LittleAlchemy2Database`.
-    pub fn display(&self, data: &GameStatus) {
-        match self {
-            Self::None => {},
-            Self::Progress(total) => {
-                println!("Will be unlocked after discovering {total} elements");
-            },
-            Self::Elements(elements, min) => {
-                println!(
-                    "Will be unlocked after discovering {} elements from those: {}",
-                    min,
-                    format_elements_list(elements.iter().map(| x | &data.elements[*x]).collect::<Vec<&AlchemyElement>>().as_slice()),
-                );
-            },
-        }
     }
 }
 

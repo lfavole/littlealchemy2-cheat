@@ -1,4 +1,4 @@
-use std::{collections::{hash_map::{Entry, Values}, HashMap}, ops::{Index, IndexMut}};
+use std::{collections::{hash_map::{Entry, Values}, HashMap, HashSet}, ops::{Index, IndexMut}, slice::Iter};
 use serde::{de::Visitor, ser::SerializeMap, Deserialize, Serialize};
 
 use super::{condition::Condition, history::History, path::PathToElement, AlchemyElement, Combination};
@@ -6,9 +6,6 @@ use super::{condition::Condition, history::History, path::PathToElement, Alchemy
 
 #[derive(Debug)]
 /// A list of `AlchemyElement`s.
-///
-/// This is different from the `LittleAlchemy2Database` struct as it doesn't contain
-/// information like acquired elements.
 pub struct ElementsList(pub HashMap<u16, AlchemyElement>);
 impl ElementsList {
     /// Returns an empty `ElementsList`.
@@ -107,7 +104,7 @@ impl IndexMut<u16> for ElementsList {
 #[derive(Debug, Default)]
 pub struct GameStatus {
     pub elements: ElementsList,
-    pub acquired_elements: Vec<u16>,
+    pub acquired_elements: HashSet<u16>,
     pub history: History,
 }
 
@@ -115,8 +112,8 @@ impl GameStatus {
     pub fn new(elements: ElementsList, history: History) -> GameStatus {
         let mut ret = Self {
             elements,
-            acquired_elements: vec![],
             history,
+            ..Default::default()
         };
         ret.check();
         ret
@@ -129,27 +126,27 @@ impl GameStatus {
         self.check_final();
     }
 
-    fn add_prime_elements(elements: &ElementsList, acquired_elements: &mut Vec<u16>) {
+    fn add_prime_elements(elements: &ElementsList, acquired_elements: &mut HashSet<u16>) {
         for item in elements.iter() {
             if item.prime {
-                acquired_elements.push(item.id);
+                acquired_elements.insert(item.id);
             }
         }
     }
 
-    fn add_unlocked_elements(elements: &ElementsList, acquired_elements: &mut Vec<u16>) {
+    fn add_unlocked_elements(elements: &ElementsList, acquired_elements: &mut HashSet<u16>) {
         for item in elements.iter() {
             match &item.condition {
                 Condition::None => {},
                 Condition::Progress(total) => {
                     if acquired_elements.len() > *total {
-                        acquired_elements.push(item.id);
+                        acquired_elements.insert(item.id);
                     }
                 },
                 Condition::Elements(elements, min) => {
                     let mut count = 0;
                     let mut to_add = vec![];
-                    for element in acquired_elements.iter_mut() {
+                    for element in acquired_elements.iter() {
                         if elements.contains(element) {
                             count += 1;
                             if count >= *min {
@@ -158,7 +155,9 @@ impl GameStatus {
                             }
                         }
                     }
-                    acquired_elements.append(&mut to_add);
+                    for item in to_add {
+                        acquired_elements.insert(item);
+                    }
                 },
             }
         }
@@ -195,9 +194,7 @@ impl GameStatus {
             println!("warning: combination between {} and {} doesn't exist", combination.0, combination.1);
         }
         for element in combinations {
-            if !self.acquired_elements.contains(&element.id) {
-                self.acquired_elements.push(element.id);
-            }
+            self.acquired_elements.insert(element.id);
             assert!(
                 element.combinations.iter().any(| comb | comb == combination),
                 "combination between {} and {} found before, but not found again",
@@ -224,48 +221,134 @@ impl GameStatus {
         }
     }
 
-    pub fn finish_game(&self) -> Vec<Combination> {
-        let mut combinations = vec![];
-        let mut acquired_elements = self.acquired_elements.clone();
-        let mut remaining_elements_to_create = HashMap::new();
-        remaining_elements_to_create.extend(
-            self.elements.0.iter()
+    pub fn finish_game(&self) -> FinishGameIterator {
+        FinishGameIterator::new(self)
+    }
+}
+
+pub trait CombinationsIterator: Iterator<Item = Combination> {
+    fn has_next(&mut self) -> bool;
+
+    fn is_empty(&mut self) -> bool;
+}
+
+pub struct CombinationsList<'a> {
+    inner: Iter<'a, Combination>,
+    index: usize,
+    length: usize,
+}
+
+impl<'a> CombinationsList<'a> {
+    pub fn new(combinations: &'a [Combination]) -> Self {
+        Self {
+            inner: combinations.iter(),
+            index: 0,
+            length: combinations.len(),
+        }
+    }
+}
+
+impl Iterator for CombinationsList<'_> {
+    type Item = Combination;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.index += 1;
+        self.inner.next().map(std::borrow::ToOwned::to_owned)
+    }
+}
+
+impl CombinationsIterator for CombinationsList<'_> {
+    fn is_empty(&mut self) -> bool {
+        self.length == 0
+    }
+
+    fn has_next(&mut self) -> bool {
+        self.index < self.length
+    }
+}
+
+#[derive(Debug)]
+pub struct FinishGameIterator<'a> {
+    index: usize,
+    combinations: Vec<Combination>,
+    status: &'a GameStatus,
+    acquired_elements: HashSet<u16>,
+    remaining_elements_to_create: HashMap<u16, HashSet<u16>>,
+}
+
+impl<'a> FinishGameIterator<'a> {
+    fn new(status: &'a GameStatus) -> Self {
+        let acquired_elements = status.acquired_elements.clone();
+        let remaining_elements_to_create = status.elements.0.iter()
             .filter(| (k, v) | !acquired_elements.contains(k) && !v.can_create.is_empty())
-            .map(| (k, v) | (*k, v.can_create.clone()))
-            .collect::<Vec<_>>()
-        );
+            .map(| (k, v) | (*k, v.can_create.iter().copied().collect()))
+            .collect();
+        Self {
+            index: 0,
+            combinations: vec![],
+            status,
+            acquired_elements: status.acquired_elements.clone(),
+            remaining_elements_to_create,
+        }
+    }
 
-        while !remaining_elements_to_create.is_empty() {
-            for element_id in acquired_elements.clone() {
-                let element = &self.elements[element_id];
+    /// Add more combinations in the stack.
+    /// Return `false` if we have added all the combinations, `true` otherwise.
+    fn fill_stack(&mut self) -> bool {
+        if self.remaining_elements_to_create.is_empty() {
+            return false;
+        }
+        let orig_length = self.combinations.len();
+        for element_id in self.acquired_elements.clone() {
+            let element = &self.status.elements[element_id];
 
-                for created_element_id in &element.can_create {
-                    let created_element = &self.elements[*created_element_id];
+            for created_element_id in &element.can_create {
+                let created_element = &self.status.elements[*created_element_id];
 
-                    for combination in &created_element.combinations {
-                        if combination.contains(&acquired_elements) {
-                            if !combinations.contains(combination) && !self.history.has_combination(combination) {
-                                combinations.push(combination.clone());
-                            }
-                            if !acquired_elements.contains(created_element_id) {
-                                acquired_elements.push(*created_element_id);
-                            }
+                for combination in &created_element.combinations {
+                    if combination.contains(self.acquired_elements.iter().copied()) {
+                        if !self.combinations.contains(combination) && !self.status.history.has_combination(combination) {
+                            self.combinations.push(combination.clone());
+                        }
+                        self.acquired_elements.insert(*created_element_id);
 
-                            if let Entry::Occupied(mut entry) = remaining_elements_to_create.entry(element_id) {
-                                if let Ok(index) = entry.get().binary_search(created_element_id) {
-                                    entry.get_mut().swap_remove(index);
-                                    if entry.get().is_empty() {
-                                        entry.remove();
-                                    }
+                        if let Entry::Occupied(mut entry) = self.remaining_elements_to_create.entry(element_id) {
+                            if entry.get().contains(created_element_id) {
+                                entry.get_mut().remove(created_element_id);
+                                if entry.get().is_empty() {
+                                    entry.remove();
                                 }
                             }
                         }
                     }
                 }
             }
-            Self::add_unlocked_elements(&self.elements, &mut acquired_elements);
+            GameStatus::add_unlocked_elements(&self.status.elements, &mut self.acquired_elements);
         }
+        assert!(self.combinations.len() - orig_length > 0, "No elements have been added when running fill_stack");
+        true
+    }
+}
 
-        combinations
+impl CombinationsIterator for FinishGameIterator<'_> {
+    fn is_empty(&mut self) -> bool {
+        self.combinations.is_empty() && !self.fill_stack()
+    }
+
+    fn has_next(&mut self) -> bool {
+        self.index < self.combinations.len() || (self.fill_stack() && self.index < self.combinations.len())
+    }
+}
+
+impl Iterator for FinishGameIterator<'_> {
+    type Item = Combination;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        assert!(self.index <= self.combinations.len(), "the index mustn't be strictly greater than the stack length");
+        if self.index == self.combinations.len() && !self.fill_stack() {
+            return None;
+        }
+        self.index += 1;
+        Some(self.combinations[self.index - 1].clone())
     }
 }
